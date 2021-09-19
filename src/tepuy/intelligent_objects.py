@@ -1,10 +1,13 @@
 import datetime
 from typing import Union
+import pandas as pd
+import numpy as np
 
 
 class IntelligentObject:
     def __init__(self, name: str):
         self.__name = name
+        self.__available_date = None
 
     @property
     def name(self):
@@ -13,6 +16,14 @@ class IntelligentObject:
     @name.setter
     def name(self, name):
         self.__name = name
+
+    @property
+    def available_date(self):
+        return self.__available_date
+
+    @available_date.setter
+    def available_date(self, available_date: datetime.datetime):
+        self.__available_date = available_date
 
 
 class Entity(IntelligentObject):
@@ -99,6 +110,10 @@ class SimNode(IntelligentObject):
     def position(self, pos: tuple):
         self.__position = pos
 
+    @property
+    def queue(self):
+        return self.__queue
+
 
 class MainSimModel:
     def __init__(self):
@@ -107,8 +122,38 @@ class MainSimModel:
 
 class Resource(IntelligentObject):
     def __init__(self,
-                 name: str):
+                 name: str,
+                 owner: Union[IntelligentObject, None] = None,
+                 sorting_feature: Union[str, None] = None,
+                 sorting_policy: str = 'smallest'):
         super().__init__(name=name)
+        self.__seized = False
+        self.__owner = owner
+        self.__ride_request_queue = SimQueue(name=f'{name}_ride_request_queue',
+                                             sorting_feature=sorting_feature,
+                                             sorting_policy=sorting_policy)
+    def seize(self):
+
+    # Getters and setters
+    @property
+    def owner(self):
+        return self.__owner
+
+    @owner.setter
+    def owner(self, new_owner: IntelligentObject):
+        self.__owner = new_owner
+
+    @property
+    def seized(self):
+        return self.__seized
+
+    @seized.setter
+    def seized(self, seize_value: bool):
+        self.__seized = seize_value
+
+    @property
+    def ride_request_queue(self):
+        return self.__ride_request_queue
 
 
 class Path(IntelligentObject):
@@ -119,8 +164,67 @@ class Path(IntelligentObject):
 
 class Creator(IntelligentObject):
     def __init__(self,
-                 name: str):
+                 name: str,
+                 position: tuple,
+                 arrival_type: str,
+                 arrival_rate: Union[str, None],
+                 arrival_table: Union[pd.DataFrame, None],
+                 datetime_column: str,
+                 name_column: Union[str, None],
+                 ):
         super().__init__(name=name)
+        self.__position = position
+        self.__arrival_type = arrival_type
+        self.__arrival_rate = arrival_rate
+        self.__arrival_table = arrival_table
+        self.__datetime_column = datetime_column
+        self.__name_column = name_column
+        self.__output_node = SimNode(name=f'{name}_output_node',
+                                     position=position)
+
+    def create_entities_from_arrival_table(self):
+        for idx, row in self.arrival_table.iterrows():
+            if self.name_column is None:
+                new_entity = Entity(name=f'entity_{idx}',
+                                    creation_date=row[self.datetime_column])
+            else:
+                new_entity = Entity(name=row[self.name_column],
+                                    creation_date=row[self.datetime_column])
+            self.output_node.queue.add_entity(new_entity)
+
+
+    # Getters and setters
+    @property
+    def position(self):
+        return self.__position
+
+    @position.setter
+    def position(self, new_position: tuple):
+        self.__position = new_position
+
+    @property
+    def arrival_type(self):
+        return self.__arrival_type
+
+    @property
+    def arrival_rate(self):
+        return self.__arrival_rate
+
+    @property
+    def arrival_table(self):
+        return self.__arrival_table
+
+    @property
+    def datetime_column(self):
+        return self.__datetime_column
+
+    @property
+    def name_column(self):
+        return self.__name_column
+
+    @property
+    def output_node(self):
+        return self.__output_node
 
 
 class Destructor(IntelligentObject):
