@@ -1,6 +1,7 @@
 import datetime
 from typing import Union
 import pandas as pd
+from tepuy.processes import SimEvent
 import numpy as np
 
 
@@ -116,8 +117,53 @@ class SimNode(IntelligentObject):
 
 
 class MainSimModel:
-    def __init__(self):
-        pass
+    def __init__(self,
+                 name: str,
+                 model_network: dict,
+                 start_date: datetime.datetime):
+        self.__name = name
+        self.__history = SimQueue(name=f'history_{name}',
+                                  sorting_feature='end_date',
+                                  sorting_policy='greatest')
+        self.__network = model_network
+        self.__alerts = dict()
+        self.__start_date = start_date
+        self.__actions = SimQueue(name=f'actions_{name}',
+                                  sorting_feature='end_date',
+                                  sorting_policy='smallest')
+
+    def run(self):
+        SimEvent(start_date=self.start_date,
+                 end_date=self.start_date,
+                 event_name='starting model',
+                 object_name=self.name,
+                 action_name='instantiate_sources'
+                 )
+
+    # Setters and getters
+    @property
+    def start_date(self):
+        return self.__start_date
+
+    @property
+    def name(self):
+        return self.__name
+
+    @name.setter
+    def name(self, new_name):
+        self.__name = new_name
+
+    @property
+    def history(self):
+        return self.__name
+
+    @property
+    def alerts(self):
+        return self.__alerts
+
+    @property
+    def actions(self):
+        return self.__actions
 
 
 class Resource(IntelligentObject):
@@ -132,7 +178,10 @@ class Resource(IntelligentObject):
         self.__ride_request_queue = SimQueue(name=f'{name}_ride_request_queue',
                                              sorting_feature=sorting_feature,
                                              sorting_policy=sorting_policy)
+
+    @staticmethod
     def seize(self):
+        pass
 
     # Getters and setters
     @property
@@ -158,8 +207,65 @@ class Resource(IntelligentObject):
 
 class Path(IntelligentObject):
     def __init__(self,
-                 name: str):
+                 name: str,
+                 path_type: str,
+                 speed: float,
+                 node_from: SimNode,
+                 node_to: SimNode,
+                 weight: float,
+                 available: bool = True):
         super().__init__(name=name)
+        self.__path_type = path_type
+        self.__speed = speed
+        self.__node_from = node_from
+        self.__node_to = node_to
+        self.__weight = weight
+        self.__available = available
+
+    # Getters and setters
+    @property
+    def path_type(self):
+        return self.__path_type
+
+    @property
+    def speed(self):
+        return self.__speed
+
+    @speed.setter
+    def speed(self, new_speed: float):
+        self.__speed = new_speed
+
+    @property
+    def node_from(self):
+        return self.__node_from
+
+    @node_from.setter
+    def node_from(self, new_node: SimNode):
+        self.__node_from = new_node
+
+    @property
+    def node_to(self):
+        return self.__node_to
+
+    @node_to.setter
+    def node_to(self, new_node: SimNode):
+        self.__node_to = new_node
+
+    @property
+    def available(self):
+        return self.__available
+
+    @available.setter
+    def available(self, new_value: bool):
+        self.__available = new_value
+
+    @property
+    def weight(self):
+        return self.__weight
+
+    @weight.setter
+    def weight(self, new_weight: bool):
+        self.__weight = new_weight
 
 
 class Creator(IntelligentObject):

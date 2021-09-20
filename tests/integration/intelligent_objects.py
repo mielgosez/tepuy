@@ -1,5 +1,5 @@
 import pandas as pd
-from tepuy.intelligent_objects import Creator
+from tepuy.intelligent_objects import Creator, MainSimModel, Destructor
 
 
 def create_mock_work_orders():
@@ -21,6 +21,12 @@ def test_source():
     new_source = Creator(name='wo_creator',
                          position=(1, 1),
                          arrival_type='arrival_table',
+                         arrival_rate=None,
                          arrival_table=wo_df,
-                         datetime_column='order_date')
+                         datetime_column='order_date',
+                         name_column=None)
+    new_sink = Destructor(name='wo_destructor')
+    MainSimModel(name='new_model',
+                 model_network={'start': [new_source],
+                                'end': [new_sink]})
     new_source.create_entities_from_arrival_table()
