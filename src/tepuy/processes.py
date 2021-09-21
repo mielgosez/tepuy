@@ -94,7 +94,7 @@ class SimProcess(ABC):
         self.__context_object = context_object
 
     @abstractmethod
-    def process(self, **kwargs):
+    def run_process(self, **kwargs):
         pass
 
     # Steps
@@ -165,3 +165,16 @@ class SimProcess(ABC):
     @property
     def context_object(self):
         return self.__context_object
+
+
+class EmptyProcess(SimProcess):
+    def __init__(self,
+                 name: str,
+                 associated_object,
+                 context_object):
+        super().__init__(name=name,
+                         associated_object=associated_object,
+                         context_object=context_object)
+
+    def run_process(self, **kwargs):
+        return self.name

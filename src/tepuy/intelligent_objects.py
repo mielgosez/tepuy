@@ -1,7 +1,7 @@
 import datetime
 from typing import Union
 import pandas as pd
-from tepuy.processes import SimEvent
+from tepuy.processes import SimEvent, SimProcess, EmptyProcess
 import numpy as np
 
 
@@ -98,10 +98,70 @@ class SimQueue(IntelligentObject):
 class SimNode(IntelligentObject):
     def __init__(self,
                  name: str,
-                 position: tuple):
+                 position: tuple,
+                 capacity: int = 1):
         super().__init__(name=name)
+        self.__capacity = capacity
         self.__position = position
+        self.__available = True
+        self.__population = []
         self.__queue = SimQueue(name='-'.join([name, 'queue']))
+
+    def on_entered(self,
+                   entity: Entity,
+                   events: dict,
+                   actions: SimQueue,
+                   enter_date: datetime.datetime,
+                   process: SimProcess = EmptyProcess):
+        if self.available:
+            self.population.append(entity)
+            if len(self.population) == self.capacity:
+                self.available = False
+            process.run_process(entity=entity,
+                                events=events,
+                                actions=actions)
+            return SimEvent(start_date=enter_date,
+                            end_date=enter_date,
+                            event_name=f'on_entered_{self.name}')
+        else:
+            self.queue.add_entity(entity)
+
+    def on_exited(self,
+                  entity: Entity,
+                  events: dict,
+                  actions: SimQueue,
+                  exit_date: datetime.datetime,
+                  process: SimProcess = EmptyProcess
+                  ):
+        process.run_process(entity=entity,
+                            events=events,
+                            actions=actions)
+        self.population.remove(entity)
+        self.available = True
+        return SimEvent(start_date=exit_date,
+                        end_date=exit_date,
+                        event_name=f'on_exited_{self.name}')
+
+    # Getters and setters
+    @property
+    def capacity(self):
+        return self.__capacity
+
+    @capacity.setter
+    def capacity(self, new_capacity: int):
+        self.__capacity = new_capacity
+
+    @property
+    def available(self):
+        return self.__available
+
+    @available.setter
+    def available(self, is_available: bool):
+        self.__available = is_available
+
+    @property
+    def population(self):
+        return self.__population
 
     @property
     def position(self):
@@ -133,6 +193,10 @@ class MainSimModel:
                                   sorting_policy='smallest')
 
     def run(self):
+        # Look at the start of the network:
+        source = self.network['start']['next']
+        source.create_entities_from_arrival_table(events_dict=self.alerts,
+                                                  actions_queue=self.actions)
         SimEvent(start_date=self.start_date,
                  end_date=self.start_date,
                  event_name='starting model',
@@ -164,6 +228,10 @@ class MainSimModel:
     @property
     def actions(self):
         return self.__actions
+
+    @property
+    def network(self):
+        return self.__network
 
 
 class Resource(IntelligentObject):
@@ -209,14 +277,21 @@ class Path(IntelligentObject):
     def __init__(self,
                  name: str,
                  path_type: str,
-                 speed: float,
                  node_from: SimNode,
                  node_to: SimNode,
-                 weight: float,
+                 speed: Union[float, None] = None,
+                 lead_time: Union[float, None] = None,
+                 weight: float = 1.0,
                  available: bool = True):
         super().__init__(name=name)
+        self.valid_options = ['path_time', 'standard']
+        # Validation
+        if path_type not in self.valid_options:
+            raise NotImplementedError(f'{path_type} not a valid path_type. '
+                                      f'Valid options are: {", ".join(self.valid_options)}')
         self.__path_type = path_type
         self.__speed = speed
+        self.__lead_time = lead_time
         self.__node_from = node_from
         self.__node_to = node_to
         self.__weight = weight
@@ -227,6 +302,13 @@ class Path(IntelligentObject):
     def path_type(self):
         return self.__path_type
 
+    @path_type.setter
+    def path_type(self, path_type: str):
+        if path_type not in self.valid_options:
+            raise NotImplementedError(f'{path_type} not a valid path_type. '
+                                      f'Valid options are: {", ".join(self.valid_options)}')
+        self.__path_type = path_type
+
     @property
     def speed(self):
         return self.__speed
@@ -234,6 +316,14 @@ class Path(IntelligentObject):
     @speed.setter
     def speed(self, new_speed: float):
         self.__speed = new_speed
+
+    @property
+    def lead_time(self):
+        return self.__lead_time
+
+    @lead_time.setter
+    def lead_time(self, new_lead_time: float):
+        self.__lead_time = new_lead_time
 
     @property
     def node_from(self):
@@ -288,7 +378,9 @@ class Creator(IntelligentObject):
         self.__output_node = SimNode(name=f'{name}_output_node',
                                      position=position)
 
-    def create_entities_from_arrival_table(self):
+    def create_entities_from_arrival_table(self,
+                                           events_dict: dict,
+                                           actions_queue: SimQueue):
         for idx, row in self.arrival_table.iterrows():
             if self.name_column is None:
                 new_entity = Entity(name=f'entity_{idx}',
@@ -296,8 +388,10 @@ class Creator(IntelligentObject):
             else:
                 new_entity = Entity(name=row[self.name_column],
                                     creation_date=row[self.datetime_column])
-            self.output_node.queue.add_entity(new_entity)
-
+            self.output_node.on_entered(entity=new_entity,
+                                        enter_date=row[self.datetime_column],
+                                        events=events_dict,
+                                        actions=actions_queue)
 
     # Getters and setters
     @property
@@ -334,8 +428,16 @@ class Creator(IntelligentObject):
 
 
 class Destructor(IntelligentObject):
-    def __init__(self, name: str):
+    def __init__(self,
+                 name:
+                 str, position: tuple):
         super().__init__(name=name)
+        self.__input_node = SimNode(name=f'{name}_input_node',
+                                    position=position)
+
+    @property
+    def input_node(self):
+        return self.__input_node
 
 
 class TaskStation(IntelligentObject):
