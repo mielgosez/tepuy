@@ -90,7 +90,7 @@ class SimProcess(ABC):
                  associated_object,
                  context_object):
         self.__name = name
-        self.__associated_object: associated_object
+        self.__associated_object = associated_object
         self.__context_object = context_object
 
     @abstractmethod
@@ -177,4 +177,5 @@ class EmptyProcess(SimProcess):
                          context_object=context_object)
 
     def run_process(self, **kwargs):
+
         return self.name

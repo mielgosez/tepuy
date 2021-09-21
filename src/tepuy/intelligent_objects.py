@@ -99,20 +99,28 @@ class SimNode(IntelligentObject):
     def __init__(self,
                  name: str,
                  position: tuple,
-                 capacity: int = 1):
+                 capacity: int = 1,
+                 next_node: Union[IntelligentObject, None] = None,
+                 is_destructor: bool = False):
         super().__init__(name=name)
         self.__capacity = capacity
         self.__position = position
         self.__available = True
         self.__population = []
         self.__queue = SimQueue(name='-'.join([name, 'queue']))
+        self.__next_node = next_node
+        self.__is_destructor = is_destructor
 
     def on_entered(self,
                    entity: Entity,
                    events: dict,
                    actions: SimQueue,
                    enter_date: datetime.datetime,
-                   process: SimProcess = EmptyProcess):
+                   process: Union[SimProcess, None] = None):
+        if process is None:
+            process = EmptyProcess(name='empty_process',
+                                   associated_object=entity,
+                                   context_object=self)
         if self.available:
             self.population.append(entity)
             if len(self.population) == self.capacity:
@@ -174,6 +182,14 @@ class SimNode(IntelligentObject):
     @property
     def queue(self):
         return self.__queue
+
+    @property
+    def next_node(self):
+        return self.__next_node
+
+    @property
+    def is_destructor(self):
+        return self.__is_destructor
 
 
 class MainSimModel:
@@ -382,12 +398,24 @@ class Creator(IntelligentObject):
                                            events_dict: dict,
                                            actions_queue: SimQueue):
         for idx, row in self.arrival_table.iterrows():
+            datetime_loc = row[self.datetime_column]
             if self.name_column is None:
                 new_entity = Entity(name=f'entity_{idx}',
-                                    creation_date=row[self.datetime_column])
+                                    creation_date=datetime_loc)
             else:
                 new_entity = Entity(name=row[self.name_column],
-                                    creation_date=row[self.datetime_column])
+                                    creation_date=datetime_loc)
+            # TODO: Redefine SimEvents such that it admits a list of objects
+            # TODO: Pass the action as a string of the expression to be executed.
+            # TODO: Use eval to define all the variables to be used in the string expression
+            # TODO: Eval the final expression
+            # TODO: Update list of events
+            # TODO: Make the node unavailable until on entered process is finished.
+            # TODO: Make it available once it has exited the node.
+            new_event = SimEvent(start_date=datetime_loc,
+                                 end_date=datetime_loc,
+                                 event_name='created_entity',
+                                 object_name=new_entity)
             self.output_node.on_entered(entity=new_entity,
                                         enter_date=row[self.datetime_column],
                                         events=events_dict,
