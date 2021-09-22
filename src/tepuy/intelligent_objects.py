@@ -59,7 +59,7 @@ class SimQueue(IntelligentObject):
         self.__sorting_policy = sorting_policy
         self.__content = list()
 
-    def add_entity(self, entity: Entity):
+    def add_entity(self, entity: Union[Entity, SimEvent]):
         if self.sorting_feature is None:
             entity.sort_property = len(self.content) + 1
         self.content.append(entity)
@@ -213,12 +213,10 @@ class MainSimModel:
         source = self.network['start']['next']
         source.create_entities_from_arrival_table(events_dict=self.alerts,
                                                   actions_queue=self.actions)
-        SimEvent(start_date=self.start_date,
-                 end_date=self.start_date,
-                 event_name='starting model',
-                 object_name=self.name,
-                 action_name='instantiate_sources'
-                 )
+        first_action = self.actions.content.pop()
+        def_string = first_action.create_definition_string(name='first_action')
+        exec(def_string)
+        exec(first_action.action_string)
 
     # Setters and getters
     @property
@@ -400,26 +398,26 @@ class Creator(IntelligentObject):
         for idx, row in self.arrival_table.iterrows():
             datetime_loc = row[self.datetime_column]
             if self.name_column is None:
-                new_entity = Entity(name=f'entity_{idx}',
-                                    creation_date=datetime_loc)
+                entity_name = f'entity_{idx}'
             else:
-                new_entity = Entity(name=row[self.name_column],
-                                    creation_date=datetime_loc)
-            # TODO: Redefine SimEvents such that it admits a list of objects
-            # TODO: Pass the action as a string of the expression to be executed.
-            # TODO: Use eval to define all the variables to be used in the string expression
-            # TODO: Eval the final expression
+                entity_name = row[self.name_column]
             # TODO: Update list of events
             # TODO: Make the node unavailable until on entered process is finished.
             # TODO: Make it available once it has exited the node.
             new_event = SimEvent(start_date=datetime_loc,
                                  end_date=datetime_loc,
                                  event_name='created_entity',
-                                 object_name=new_entity)
-            self.output_node.on_entered(entity=new_entity,
-                                        enter_date=row[self.datetime_column],
-                                        events=events_dict,
-                                        actions=actions_queue)
+                                 object_dictionary={'entity_name': entity_name,
+                                                    'creation_date': datetime_loc,
+                                                    'creator_output_node': self.output_node,
+                                                    'events_dict': events_dict,
+                                                    'actions_queue': actions_queue},
+                                 action_string='new_entity = Entity(name=entity_name, creation_date=creation_date);'
+                                               'creator_output_node.on_entered(entity=new_entity, '
+                                               'enter_date=creation_date, '
+                                               'events=events_dict,'
+                                               'actions=actions_queue)')
+            actions_queue.add_entity(new_event)
 
     # Getters and setters
     @property

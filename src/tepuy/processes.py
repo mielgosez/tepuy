@@ -8,29 +8,50 @@ class SimEvent:
                  start_date: datetime.datetime,
                  end_date: datetime.datetime,
                  event_name: str,
-                 object_name: Union[str, None] = None,
-                 action_name: Union[str, None] = None):
+                 sorting_feature: str = 'end_date',
+                 sorting_policy: str = 'smallest',
+                 object_dictionary: Union[dict, None] = None,
+                 action_string: Union[str, None] = None):
         self.__start_date = start_date
         self.__end_date = end_date
-        self.__object_name = object_name
-        self.__action_name = action_name
+        self.__sorting_feature = sorting_feature
+        self.__sorting_policy = sorting_policy
+        self.__object_dictionary = object_dictionary
+        self.__action_string = action_string
         self.__event_name = event_name
+
+    def create_definition_string(self, name: str):
+        string_list = [item[0]+'='+f'{name}.object_dictionary["{item[0]}"]' for item in self.object_dictionary.items()]
+        return ';'.join(string_list)
+
+    def run_action(self):
+        def_string = self.create_definition_string()
+        exec(def_string)
+        exec(self.action_string)
 
     @property
     def start_date(self):
         return self.__start_date
 
     @property
+    def sorting_feature(self):
+        return self.__sorting_feature
+
+    @property
+    def sorting_policy(self):
+        return self.__sorting_policy
+
+    @property
     def end_date(self):
         return self.__end_date
 
     @property
-    def object_name(self):
-        return self.__object_name
+    def object_dictionary(self):
+        return self.__object_dictionary
 
     @property
-    def action_name(self):
-        return self.__action_name
+    def action_string(self):
+        return self.__action_string
 
     @property
     def event_name(self):
