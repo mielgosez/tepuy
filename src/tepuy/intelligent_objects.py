@@ -31,14 +31,20 @@ class Entity(IntelligentObject):
     def __init__(self,
                  name: str,
                  creation_date: datetime.datetime = datetime.datetime.now(),
-                 sort_property_value: int = 1):
+                 sort_property_value: int = 1,
+                 destination: Union[IntelligentObject, None] = None):
         super().__init__(name=name)
         self.__creation_date = creation_date
         self.__sort_property = sort_property_value
+        self.__destination = destination
 
     @property
     def creation_date(self):
         return self.__creation_date
+
+    @property
+    def destination(self):
+        return self.__destination
 
     @property
     def sort_property(self):
@@ -217,6 +223,7 @@ class MainSimModel:
         def_string = first_action.create_definition_string(name='first_action')
         exec(def_string)
         exec(first_action.action_string)
+        print('hello')
 
     # Setters and getters
     @property
