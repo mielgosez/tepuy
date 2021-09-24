@@ -72,7 +72,7 @@ class SimQueue(IntelligentObject):
         self.sort_queue()
 
     def sort_queue(self):
-        reverse_list = (self.sorting_policy == 'smallest')
+        reverse_list = not (self.sorting_policy == 'smallest')
         if self.sorting_feature is not None:
             self.content.sort(key=lambda x: getattr(x, self.sorting_feature),
                               reverse=reverse_list)
@@ -134,10 +134,37 @@ class SimNode(IntelligentObject):
             process.run_process(entity=entity,
                                 events=events,
                                 actions=actions)
-            return SimEvent(start_date=enter_date,
-                            end_date=enter_date,
-                            event_name=f'on_entered_{self.name}')
+            new_event = SimEvent(start_date=enter_date,
+                                 end_date=enter_date,
+                                 event_name=f'on_entered_{self.name}',
+                                 object_dictionary={'my_entity': entity,
+                                                    'my_node': self,
+                                                    'events': events,
+                                                    'actions': actions,
+                                                    'exit_date': enter_date},
+                                 action_string='my_node.on_exited('
+                                               'entity=my_entity,'
+                                               'events=events,'
+                                               'actions=actions,'
+                                               'exit_date=exit_date)')
+            actions.add_entity(entity=new_event)
         else:
+            new_event = SimEvent(start_date=enter_date,
+                                 end_date=enter_date,
+                                 event_name='created_entity',
+                                 object_dictionary={'new_entity': entity,
+                                                    'output_node': self,
+                                                    'events_dict': events,
+                                                    'actions_queue': actions},
+                                 action_string='output_node.on_entered(entity=new_entity, '
+                                               'enter_date=creation_date, '
+                                               'events=events,'
+                                               'actions=actions)')
+            try:
+                events[f'on_exited_{self.name}'].append(new_event)
+            except KeyError:
+                events[f'on_exited_{self.name}'] = list()
+                events[f'on_exited_{self.name}'].append(new_event)
             self.queue.add_entity(entity)
 
     def on_exited(self,
@@ -147,6 +174,7 @@ class SimNode(IntelligentObject):
                   exit_date: datetime.datetime,
                   process: SimProcess = EmptyProcess
                   ):
+        # TODO: prompt on_exited node event and update end_date for those events released and add them to actions list.
         process.run_process(entity=entity,
                             events=events,
                             actions=actions)

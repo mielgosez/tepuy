@@ -54,7 +54,7 @@ class SimEvent:
         return self.__action_string
 
     @property
-    def event_name(self):
+    def name(self):
         return self.__event_name
 
 

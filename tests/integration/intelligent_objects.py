@@ -52,4 +52,3 @@ def test_source():
                               model_network={'start': {'next': new_source},
                                              new_source: {'next': new_sink, 'path': new_path}})
     main_model.run()
-    new_source.create_entities_from_arrival_table()
