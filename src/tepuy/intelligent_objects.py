@@ -7,6 +7,7 @@ import numpy as np
 
 class IntelligentObject:
     def __init__(self, name: str):
+        # TODO Create logger.
         self.__name = name
         self.__available_date = None
 
@@ -32,11 +33,24 @@ class Entity(IntelligentObject):
                  name: str,
                  creation_date: datetime.datetime = datetime.datetime.now(),
                  sort_property_value: int = 1,
+                 network: dict = None,
                  destination: Union[IntelligentObject, None] = None):
         super().__init__(name=name)
         self.__creation_date = creation_date
         self.__sort_property = sort_property_value
         self.__destination = destination
+        self.__network = network
+        self.__current_node = None
+
+    def set_destination(self):
+        """
+        Updates entity's destination and returns lead time to arrive there in hours.
+        :return:lead time to arrive destination from current node in hours.
+        """
+        # TODO: consider new implementation with multiple paths possible.
+        self.destination = self.network[self.current_node]['next']
+        lead_time = self.network[self.current_node]['path'].lead_time
+        return datetime.timedelta(hours=lead_time)
 
     @property
     def creation_date(self):
@@ -46,6 +60,10 @@ class Entity(IntelligentObject):
     def destination(self):
         return self.__destination
 
+    @destination.setter
+    def destination(self, new_destination: IntelligentObject):
+        self.__destination = new_destination
+
     @property
     def sort_property(self):
         return self.__sort_property
@@ -53,6 +71,22 @@ class Entity(IntelligentObject):
     @sort_property.setter
     def sort_property(self, value: int):
         self.__sort_property = value
+
+    @property
+    def current_node(self):
+        return self.__current_node
+
+    @current_node.setter
+    def current_node(self, new_node: IntelligentObject):
+        self.__current_node = new_node
+
+    @property
+    def network(self):
+        return self.__network
+
+    @network.setter
+    def network(self, new_network: dict):
+        self.__network = new_network
 
 
 class SimQueue(IntelligentObject):
@@ -100,6 +134,10 @@ class SimQueue(IntelligentObject):
     def sorting_policy(self, value: Union[str, None]):
         self.__sorting_policy = value
 
+    @property
+    def length(self):
+        return len(self.content)
+
 
 class SimNode(IntelligentObject):
     def __init__(self,
@@ -123,6 +161,7 @@ class SimNode(IntelligentObject):
                    actions: SimQueue,
                    enter_date: datetime.datetime,
                    process: Union[SimProcess, None] = None):
+        enter_date = pd.to_datetime(enter_date)
         if process is None:
             process = EmptyProcess(name='empty_process',
                                    associated_object=entity,
@@ -131,6 +170,7 @@ class SimNode(IntelligentObject):
             self.population.append(entity)
             if len(self.population) == self.capacity:
                 self.available = False
+            entity.current_node = self
             process.run_process(entity=entity,
                                 events=events,
                                 actions=actions)
@@ -172,17 +212,39 @@ class SimNode(IntelligentObject):
                   events: dict,
                   actions: SimQueue,
                   exit_date: datetime.datetime,
-                  process: SimProcess = EmptyProcess
+                  process: Union[SimProcess, None] = None
                   ):
-        # TODO: prompt on_exited node event and update end_date for those events released and add them to actions list.
+        if process is None:
+            process = EmptyProcess(name='empty_process',
+                                   associated_object=entity,
+                                   context_object=self)
+        exit_date = pd.to_datetime(exit_date)
+        self.population.remove(entity)
+        self.available = True
         process.run_process(entity=entity,
                             events=events,
                             actions=actions)
-        self.population.remove(entity)
-        self.available = True
-        return SimEvent(start_date=exit_date,
-                        end_date=exit_date,
-                        event_name=f'on_exited_{self.name}')
+        try:
+            events = events[f'on_exited_{self.name}']
+            for ev in events:
+                ev.end_date = exit_date
+                actions.add_entity(ev)
+        except KeyError:
+            pass
+        lead_time = entity.set_destination()
+        new_event = SimEvent(start_date=exit_date,
+                             end_date=exit_date+lead_time,
+                             event_name=f'on_entered_{entity.destination.name}',
+                             object_dictionary={'new_entity': entity,
+                                                'enter_node': entity.destination,
+                                                'enter_date': exit_date+lead_time,
+                                                'events_dict': events,
+                                                'actions_queue': actions},
+                             action_string='enter_node.on_entered(entity=new_entity, '
+                                           'enter_date=enter_date, '
+                                           'events=events,'
+                                           'actions=actions)')
+        actions.add_entity(entity=new_event)
 
     # Getters and setters
     @property
@@ -246,11 +308,19 @@ class MainSimModel:
         # Look at the start of the network:
         source = self.network['start']['next']
         source.create_entities_from_arrival_table(events_dict=self.alerts,
+                                                  network=self.network,
                                                   actions_queue=self.actions)
         first_action = self.actions.content.pop()
         def_string = first_action.create_definition_string(name='first_action')
         exec(def_string)
         exec(first_action.action_string)
+        while self.actions.length > 0:
+            # TODO encapsulate exec in a method to avoid overriding variables.
+            # TODO implement scape option to avoid infinite loop.
+            next_action = self.actions.content.pop()
+            def_string = next_action.create_definition_string(name='next_action')
+            exec(def_string)
+            exec(next_action.action_string)
         print('hello')
 
     # Setters and getters
@@ -428,6 +498,7 @@ class Creator(IntelligentObject):
                                      position=position)
 
     def create_entities_from_arrival_table(self,
+                                           network: dict,
                                            events_dict: dict,
                                            actions_queue: SimQueue):
         for idx, row in self.arrival_table.iterrows():
@@ -436,18 +507,18 @@ class Creator(IntelligentObject):
                 entity_name = f'entity_{idx}'
             else:
                 entity_name = row[self.name_column]
-            # TODO: Update list of events
-            # TODO: Make the node unavailable until on entered process is finished.
-            # TODO: Make it available once it has exited the node.
             new_event = SimEvent(start_date=datetime_loc,
                                  end_date=datetime_loc,
                                  event_name='created_entity',
                                  object_dictionary={'entity_name': entity_name,
+                                                    'my_network': network,
                                                     'creation_date': datetime_loc,
                                                     'creator_output_node': self.output_node,
                                                     'events_dict': events_dict,
                                                     'actions_queue': actions_queue},
-                                 action_string='new_entity = Entity(name=entity_name, creation_date=creation_date);'
+                                 action_string='new_entity = Entity(name=entity_name, '
+                                               'creation_date=creation_date, '
+                                               'network=my_network);'
                                                'creator_output_node.on_entered(entity=new_entity, '
                                                'enter_date=creation_date, '
                                                'events=events_dict,'

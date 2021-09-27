@@ -1,6 +1,7 @@
 from typing import Union
 from abc import ABC, abstractmethod
 import datetime
+import pandas as pd
 
 
 class SimEvent:
@@ -12,8 +13,8 @@ class SimEvent:
                  sorting_policy: str = 'smallest',
                  object_dictionary: Union[dict, None] = None,
                  action_string: Union[str, None] = None):
-        self.__start_date = start_date
-        self.__end_date = end_date
+        self.__start_date = pd.to_datetime(start_date)
+        self.__end_date = pd.to_datetime(end_date)
         self.__sorting_feature = sorting_feature
         self.__sorting_policy = sorting_policy
         self.__object_dictionary = object_dictionary

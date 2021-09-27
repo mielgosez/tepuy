@@ -50,5 +50,6 @@ def test_source():
                     lead_time=10)
     main_model = MainSimModel(name='new_model', start_date=pd.to_datetime('2021-09-30 15:00:00'),
                               model_network={'start': {'next': new_source},
-                                             new_source: {'next': new_sink, 'path': new_path}})
+                                             new_source.output_node: {'next': new_sink.input_node,
+                                                                      'path': new_path}})
     main_model.run()
