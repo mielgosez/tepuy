@@ -2,14 +2,19 @@ import datetime
 from typing import Union
 import pandas as pd
 from tepuy.processes import SimEvent, SimProcess, EmptyProcess
+from logging import Logger
 import numpy as np
 
 
 class IntelligentObject:
     def __init__(self, name: str):
-        # TODO Create logger.
         self.__name = name
+        self.__logger = Logger(name=name)
         self.__available_date = None
+
+    @property
+    def logger(self):
+        return self.__logger
 
     @property
     def name(self):
